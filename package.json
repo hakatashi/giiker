@@ -1,0 +1,20 @@
+{
+  "name": "giiker",
+  "version": "1.0.0",
+  "description": "JavaScript wrapper for GiiKER smart cube Bluetooth API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hakatashi/giiker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hakatashi/giiker/issues"
+  },
+  "homepage": "https://github.com/hakatashi/giiker#readme"
+}
