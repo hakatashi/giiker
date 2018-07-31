@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "JavaScript wrapper for GiiKER smart cube Bluetooth API",
   "main": "index.js",
+  "files": [
+    "index.js"
+  ],
   "scripts": {
+    "build": "babel index.babel.js -o index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
