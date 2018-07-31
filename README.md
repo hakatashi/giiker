@@ -1,6 +1,6 @@
 # giiker
 
-JavaScript wrapper for GiiKER smart cube Bluetooth API
+JavaScript wrapper for [GiiKER smart cube](http://giiker.cn/) Bluetooth API
 
 ## Usage
 
