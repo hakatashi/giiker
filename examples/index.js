@@ -1,4 +1,4 @@
-import GiiKER from '../index.babel.js';
+import GiiKER from '../index.js';
 
 const button = document.querySelector('button');
 const textarea = document.querySelector('textarea');

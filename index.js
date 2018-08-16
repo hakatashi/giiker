@@ -1,6 +1,3 @@
-import EventEmitter from 'events';
-import assert from 'assert';
-
 const SERVICE_UUID = '0000aadb-0000-1000-8000-00805f9b34fb';
 const CHARACTERISTIC_UUID = '0000aadc-0000-1000-8000-00805f9b34fb';
 
@@ -12,6 +9,45 @@ const turns = {
 	8: -2,
 };
 
+class EventEmitter {
+  constructor() {
+    this.listeners = {};
+  }
+
+  on(label, callback) {
+	if (!this.listeners[label]) {
+		this.listeners[label] = [];
+	}
+	this.listeners[label].push(callback);
+  }
+
+  off(label, callback) {
+      let listeners = this.listeners[label];
+
+      if (listeners && listeners.length > 0) {
+          let index = listeners.indexOf(callback)
+          if (index > -1) {
+              listeners.splice(index, 1);
+              this.listeners[label] = listeners;
+              return true;
+          }
+      }
+      return false;
+  }
+
+  emit(label, ...args) {
+      let listeners = this.listeners[label];
+
+      if (listeners && listeners.length > 0) {
+          listeners.forEach((listener) => {
+              listener(...args);
+          });
+          return true;
+      }
+      return false;
+  }
+}
+
 class Giiker extends EventEmitter {
 	constructor() {
 		super();
@@ -19,15 +55,15 @@ class Giiker extends EventEmitter {
 	}
 
 	async connect() {
-		if (!global.navigator) {
+		if (!window.navigator) {
 			throw new Error('window.navigator is not accesible. Maybe you\'re running Node.js?');
 		}
 
-		if (!global.navigator.bluetooth) {
+		if (!window.navigator.bluetooth) {
 			throw new Error('Web Bluetooth API is not accesible');
 		}
 
-		const device = await global.navigator.bluetooth.requestDevice({
+		const device = await window.navigator.bluetooth.requestDevice({
 			filters: [{
 				namePrefix: 'GiC',
 			}],
@@ -58,8 +94,7 @@ class Giiker extends EventEmitter {
 			notation = `${face}2`;
 		} else if (amount === -1) {
 			notation = `${face}'`;
-		} else {
-			assert(amount === -2);
+		} else if (amount === -2) {
 			notation = `${face}2'`;
 		}
 
