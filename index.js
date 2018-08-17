@@ -52,7 +52,12 @@ class Giiker extends EventEmitter {
 	constructor() {
 		super();
 		this._onCharacteristicValueChanged = this._onCharacteristicValueChanged.bind(this);
+		this._onBatteryLevelChanged = this._onBatteryLevelChanged.bind(this);
 		this._onDisconnected = this._onDisconnected.bind(this);
+	}
+
+	get batteryLevel () {
+		return this._batteryLevel;
 	}
 
 	async connect() {
@@ -68,7 +73,7 @@ class Giiker extends EventEmitter {
 			filters: [{
 				namePrefix: 'GiC',
 			}],
-			optionalServices: [SERVICE_UUID],
+			optionalServices: [SERVICE_UUID, 'battery_service'],
 		});
 
 		const server = await device.gatt.connect();
@@ -77,9 +82,18 @@ class Giiker extends EventEmitter {
 		await characteristic.startNotifications();
 		await characteristic.readValue();
 		characteristic.addEventListener('characteristicvaluechanged', this._onCharacteristicValueChanged);
+
+		const batteryService = await server.getPrimaryService('battery_service');
+		const batteryCharacteristic = await batteryService.getCharacteristic('battery_level')
+		await batteryCharacteristic.startNotifications();
+		const batteryLevel = await batteryCharacteristic.readValue();
+		this._batteryLevel = batteryLevel.getUint8(0);
+		batteryCharacteristic.addEventListener('characteristicvaluechanged', this._onBatteryLevelChanged);
+
 		device.addEventListener('gattserverdisconnected', this._onDisconnected);
 
 		this._device = device;
+		this._battery = batteryCharacteristic;
 	}
 
 	disconnect() {
@@ -110,6 +124,11 @@ class Giiker extends EventEmitter {
 		}
 
 		this.emit('move', {face, amount, notation});
+	}
+
+	_onBatteryLevelChanged(event) {
+		this._batteryLevel = event.target.value.getUint8(0);
+		this.emit('battery-changed', {level: this._batteryLevel});
 	}
 
 	_onDisconnected() {
