@@ -51,7 +51,8 @@ class EventEmitter {
 class Giiker extends EventEmitter {
 	constructor() {
 		super();
-		this.onCharacteristicValueChanged = this.onCharacteristicValueChanged.bind(this);
+		this._onCharacteristicValueChanged = this._onCharacteristicValueChanged.bind(this);
+		this._onDisconnected = this._onDisconnected.bind(this);
 	}
 
 	async connect() {
@@ -74,11 +75,21 @@ class Giiker extends EventEmitter {
 		const service = await server.getPrimaryService(SERVICE_UUID);
 		const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 		await characteristic.startNotifications();
-		const initialValue = await characteristic.readValue();
-		characteristic.addEventListener('characteristicvaluechanged', this.onCharacteristicValueChanged);
+		await characteristic.readValue();
+		characteristic.addEventListener('characteristicvaluechanged', this._onCharacteristicValueChanged);
+		device.addEventListener('gattserverdisconnected', this._onDisconnected);
+
+		this._device = device;
 	}
 
-	onCharacteristicValueChanged(event) {
+	disconnect() {
+		if (!this._device) {
+			return;
+		}
+		this._device.gatt.disconnect();
+	}
+
+	_onCharacteristicValueChanged(event) {
 		const move = event.target.value.getUint8(16);
 
 		const faceIndex = move >> 4;
@@ -99,6 +110,11 @@ class Giiker extends EventEmitter {
 		}
 
 		this.emit('move', {face, amount, notation});
+	}
+
+	_onDisconnected() {
+		this._device = null;
+		this.emit('disconnected');
 	}
 }
 
