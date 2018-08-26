@@ -1,6 +1,10 @@
 const SERVICE_UUID = '0000aadb-0000-1000-8000-00805f9b34fb';
 const CHARACTERISTIC_UUID = '0000aadc-0000-1000-8000-00805f9b34fb';
 
+const SYSTEM_SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
+const SYSTEM_READ_UUID = '0000aaab-0000-1000-8000-00805f9b34fb';
+const SYSTEM_WRITE_UUID = '0000aaac-0000-1000-8000-00805f9b34fb';
+
 // face Indices;
 const B = 0;
 const D = 1;
@@ -123,7 +127,6 @@ class Giiker extends EventEmitter {
   constructor() {
     super();
     this._onCharacteristicValueChanged = this._onCharacteristicValueChanged.bind(this);
-    this._onBatteryLevelChanged = this._onBatteryLevelChanged.bind(this);
     this._onDisconnected = this._onDisconnected.bind(this);
   }
 
@@ -140,7 +143,7 @@ class Giiker extends EventEmitter {
       filters: [{
         namePrefix: 'GiC',
       }],
-      optionalServices: [SERVICE_UUID, 'battery_service'],
+      optionalServices: [SERVICE_UUID, SYSTEM_SERVICE_UUID],
     });
 
     const server = await device.gatt.connect();
@@ -151,12 +154,7 @@ class Giiker extends EventEmitter {
     this._state = this._parseCubeValue(value).state;
     characteristic.addEventListener('characteristicvaluechanged', this._onCharacteristicValueChanged);
 
-    const batteryService = await server.getPrimaryService('battery_service');
-    const batteryCharacteristic = await batteryService.getCharacteristic('battery_level');
-    await batteryCharacteristic.startNotifications();
-    const batteryLevel = await batteryCharacteristic.readValue();
-    this._batteryLevel = batteryLevel.getUint8(0);
-    batteryCharacteristic.addEventListener('characteristicvaluechanged', this._onBatteryLevelChanged);
+    this._systemService = await server.getPrimaryService(SYSTEM_SERVICE_UUID);
 
     device.addEventListener('gattserverdisconnected', this._onDisconnected);
 
@@ -170,10 +168,30 @@ class Giiker extends EventEmitter {
     this._device.gatt.disconnect();
   }
 
-  get batteryLevel () {
-    return this._batteryLevel;
+  /**
+   * Returns a promise that will resolve to the battery level
+   */
+  async getBatteryLevel () {
+    const readCharacteristic = await this._systemService.getCharacteristic(SYSTEM_READ_UUID);
+    const writeCharacteristic = await this._systemService.getCharacteristic(SYSTEM_WRITE_UUID);
+    await readCharacteristic.startNotifications();
+    const data = new Uint8Array([0xb5]).buffer;
+    writeCharacteristic.writeValue(data);
+
+    return new Promise((resolve) => {
+      const listener = (event) => {
+        const value = event.target.value;
+        readCharacteristic.removeEventListener('characteristicvaluechanged', listener);
+        readCharacteristic.stopNotifications();
+        resolve(value.getUint8(1));
+      };
+      readCharacteristic.addEventListener('characteristicvaluechanged', listener);
+    });
   }
 
+  /**
+   * Returns the current state of the cube as arrays of corners and edges
+   */
   get state() {
     const state = {
       corners: [],
@@ -201,6 +219,70 @@ class Giiker extends EventEmitter {
       });
     });
     return state;
+  }
+
+  /**
+   * Returns the current state of the cube as a string compatible with cubejs
+   */
+  get stateString() {
+    const cornerFaceIndices = [
+      [29, 15, 26],
+      [9, 8, 20],
+      [6, 38, 18],
+      [44, 27, 24],
+      [17, 35, 51],
+      [2, 11, 45],
+      [36, 0, 47],
+      [33, 42, 53]
+    ];
+
+    const edgeFaceIndices = [
+      [25, 28],
+      [23, 12],
+      [19, 7],
+      [21, 41],
+      [32, 16],
+      [5, 10],
+      [3, 37],
+      [30, 43],
+      [52, 34],
+      [48, 14],
+      [46, 1],
+      [50, 39]
+    ];
+
+    const colorFaceMapping = {
+      blue: 'B',
+      yellow: 'D',
+      orange: 'L',
+      white: 'U',
+      red: 'R',
+      green: 'F'
+    };
+
+    const state = this.state;
+    const faces = [];
+
+    state.corners.forEach((corner, cornerIndex) => {
+      corner.position.forEach((face, faceIndex) => {
+        faces[cornerFaceIndices[cornerIndex][faceIndex]] = colorFaceMapping[corner.colors[faceIndex]];
+      });
+    });
+
+    state.edges.forEach((edge, edgeIndex) => {
+      edge.position.forEach((face, faceIndex) => {
+        faces[edgeFaceIndices[edgeIndex][faceIndex]] = colorFaceMapping[edge.colors[faceIndex]];
+      });
+    });
+
+    faces[4] = 'U';
+    faces[13] = 'R';
+    faces[22] = 'F';
+    faces[31] = 'D';
+    faces[40] = 'L';
+    faces[49] = 'B';
+
+    return faces.join('');
   }
 
   _onCharacteristicValueChanged(event) {
