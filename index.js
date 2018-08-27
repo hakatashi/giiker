@@ -5,7 +5,7 @@ const SYSTEM_SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
 const SYSTEM_READ_UUID = '0000aaab-0000-1000-8000-00805f9b34fb';
 const SYSTEM_WRITE_UUID = '0000aaac-0000-1000-8000-00805f9b34fb';
 
-// face Indices;
+// face indices
 const B = 0;
 const D = 1;
 const L = 2;
@@ -14,13 +14,6 @@ const R = 4;
 const F = 5;
 
 const faces = ['B', 'D', 'L', 'U', 'R', 'F'];
-
-const turns = {
-  0: 1,
-  1: 2,
-  2: -1,
-  8: -2,
-};
 
 // color indices
 const b = 0;
@@ -31,6 +24,13 @@ const r = 4;
 const g = 5;
 
 const colors = ['blue', 'yellow', 'orange', 'white', 'red', 'green'];
+
+const turns = {
+  0: 1,
+  1: 2,
+  2: -1,
+  8: -2,
+};
 
 const cornerColors = [
   [y, r, g],
@@ -161,11 +161,19 @@ class Giiker extends EventEmitter {
     this._device = device;
   }
 
+	/**
+	 * Disconnects from the GiiKER cube. Will fire the `disconnected` event once done.
+	 */
   disconnect() {
     if (!this._device) {
       return;
     }
     this._device.gatt.disconnect();
+  }
+
+  _onDisconnected() {
+    this._device = null;
+    this.emit('disconnected');
   }
 
   /**
@@ -190,7 +198,27 @@ class Giiker extends EventEmitter {
   }
 
   /**
-   * Returns the current state of the cube as arrays of corners and edges
+   * Returns the current state of the cube as arrays of corners and edges.
+	 *
+	 * Example how to interpret the state:
+	 *
+	 * Corner:
+	 * ```
+	 *   {
+	 *     position: ['D', 'R', 'F'],
+	 *     colors: ['yellow', 'red', 'green']
+	 *   }
+	 * ```
+	 * The corner in position DRF has the colors yellow on D, red on R and green ON F.
+	 *
+	 * Edge:
+	 * ```
+	 *   {
+	 *     position: ['F', 'U'],
+	 *     colors: ['green', 'white']
+	 *   }
+	 * ```
+	 * The edge in position FU has the colors green on F and white on U.
    */
   get state() {
     const state = {
@@ -198,7 +226,7 @@ class Giiker extends EventEmitter {
       edges: []
     };
     this._state.cornerPositions.forEach((cp, index) => {
-      const mappedColors = this._mapColors(
+      const mappedColors = this._mapCornerColors(
         cornerColors[cp - 1],
         this._state.cornerOrientations[index],
         index
@@ -222,7 +250,9 @@ class Giiker extends EventEmitter {
   }
 
   /**
-   * Returns the current state of the cube as a string compatible with cubejs
+   * Returns the current state of the cube as a string compatible with cubejs.
+	 *
+	 * See https://github.com/ldez/cubejs#cubefromstringstr
    */
   get stateString() {
     const cornerFaceIndices = [
@@ -292,16 +322,6 @@ class Giiker extends EventEmitter {
     this.emit('move', moves[0]);
   }
 
-  _onBatteryLevelChanged(event) {
-    this._batteryLevel = event.target.value.getUint8(0);
-    this.emit('battery-changed', {level: this._batteryLevel});
-  }
-
-  _onDisconnected() {
-    this._device = null;
-    this.emit('disconnected');
-  }
-
   _parseCubeValue (value) {
     const state = {
       cornerPositions: [],
@@ -315,7 +335,6 @@ class Giiker extends EventEmitter {
       const highNibble = move >> 4;
       const lowNibble = move & 0b1111;
       if (i < 4) {
-        // cornerPositions[p] == c (corner c is at position p)
         state.cornerPositions.push(highNibble, lowNibble);
       } else if (i < 8) {
         state.cornerOrientations.push(highNibble, lowNibble);
@@ -354,7 +373,7 @@ class Giiker extends EventEmitter {
     return {face, amount, notation};
   }
 
-  _mapColors(colors, orientation, position) {
+  _mapCornerColors(colors, orientation, position) {
     const actualColors = [];
 
     if (orientation !== 3) {
