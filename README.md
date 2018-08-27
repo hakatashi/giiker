@@ -12,9 +12,9 @@ const button = document.querySelector('button#connect');
 button.addEventListener('click', async () => {
 	const giiker = await GiiKER.connect();
 	giiker.on('move', (move) => {
-		console.log(mave.face); //=> "F"
-		console.log(mave.amount); //=> -1
-		console.log(mave.notation); //=> "F'"
+		console.log(move.face); //=> "F"
+		console.log(move.amount); //=> -1
+		console.log(move.notation); //=> "F'"
 	});
 })
 ```
