@@ -418,4 +418,4 @@ const connect = async () => {
   return giiker;
 };
 
-export default {connect};
+module.exports = {connect};
