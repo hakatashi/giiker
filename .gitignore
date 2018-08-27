@@ -62,4 +62,5 @@ typings/
 
 package-lock.json
 
-index.js
+cert.pem
+key.pem
